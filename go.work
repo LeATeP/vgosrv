@@ -1,0 +1,7 @@
+go 1.18
+
+use (
+    ./
+    ../vgo2/n/psql
+    ../vgo2/n/server
+)

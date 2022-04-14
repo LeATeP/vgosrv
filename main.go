@@ -4,8 +4,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"psql"
-	"server"
+	"psql" // https://github.com/LeATeP/Vaava_go/psql
+	"server"  // https://github.com/LeATeP/Vaava_go/server
 	"time"
 )
 

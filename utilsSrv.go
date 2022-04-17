@@ -5,45 +5,42 @@ import (
 	"log"
 	"time"
 )
+
 // ready query's with newQuery
 func prepareQuery() {
-	var err error
-	selectTableId, err = p.NewQuery(selectTable)
-	if err != nil {
-		log.Fatal(err)
+	for i, k := range queryMap {
+		var err error
+		k.id, err = p.NewQuery(k.query)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		queryMap[i] = k
 	}
-	checkIfUnitFreeId, err = p.NewQuery(checkIfUnitFree)
-	if err != nil {
-		log.Fatal(err)
-	}
-	updateItemAmountId, err = p.NewQuery(updateItemAmount)
-	if err != nil {
-		log.Fatal(err)
-	}
-	setUnitContainerId, err = p.NewQuery(setUnitContainer)
-	if err != nil {
-		log.Fatal(err)
-	}
-	restoreUnitId, err = p.NewQuery(restoreUnit)
-	if err != nil {
-		log.Fatal(err)
-	}
+	selectItemsId 	   = queryMap[1].id
+	selectUnitInfoId   = queryMap[2].id
+	checkIfUnitFreeId  = queryMap[3].id
+	updateItemAmountId = queryMap[4].id
+	setUnitContainerId = queryMap[5].id
+	restoreUnitId 	   = queryMap[6].id
+
 }
+
 // prepare database for new clients, reset all clients imprint from database
 func prepareDatabase() {
 	p.ExecCmdFast(resetAllUnits)
 }
 
 // unit with containerId is nill, in table `unit_info` for client allocation
-func CheckIfUnitAvailable() int64 {
+func CheckIfUnitAvailable() (int64, error) {
 	data, err := p.ExecQuery(checkIfUnitFreeId)
 	if err != nil {
-		return -1
+		return -1, err
 	}
 	if len(data) == 0 {
-		return -1
+		return -1, fmt.Errorf("no free units")
 	}
-	return data[0]["unit_id"].(int64)
+	return data[0]["id"].(int64), nil
 }
 
 func checkMaterails() {
@@ -79,4 +76,3 @@ func disconnectClient(i int64) {
 	client.Conn.Close()
 	delete(srv.ClientConn, i)
 }
-

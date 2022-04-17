@@ -24,16 +24,24 @@ const ( // exec at the start of the server
 	resetAllUnits = `UPDATE unit_info SET container_id = NULL;`
 )
 
-const (
-	selectTable      = `select * from items order by id;`
-	checkIfUnitFree  = `select * from unit_info where container_id is null order by unit_id;`
-	updateItemAmount = `update items set amount = amount + $1 where name = $2;`
-	setUnitContainer = `update unit_info set container_id = $1 where unit_id = $2;`
-	restoreUnit      = `update unit_info set container_id = null where unit_id = $1;`
-)
+type queryPool struct {
+	id    int64
+	name  string
+	query string
+}
+
+var queryMap = map[int64]queryPool{
+	1: {name: `selectItems`, query: `SELECT * FROM items order by id;`},
+	2: {name: `selectUnitInfo`, query: `SELECT * FROM unit_info WHERE id = $1;`},
+	3: {name: `checkUnitFree`, query: `SELECT * FROM unit_info WHERE container_id IS NULL;`},
+	4: {name: `updateItemAmount`, query: `UPDATE items SET amount = amount + $1 WHERE name = $2;`},
+	5: {name: `setUnitContainer`, query: `UPDATE unit_info SET container_id = $1 WHERE id = $2;`},
+	6: {name: `restoreUnit`, query: `UPDATE unit_info SET container_id = NULL WHERE id = $1;`},
+}
 
 var (
-	selectTableId      int64
+	selectItemsId      int64
+	selectUnitInfoId   int64
 	checkIfUnitFreeId  int64
 	updateItemAmountId int64
 	setUnitContainerId int64
@@ -65,10 +73,9 @@ func main() {
 		AcceptConn(i)
 	}
 }
-
 func AcceptConn(i int64) {
 	conn, err := srv.Listener.Accept() // listen for clients
-	if err != nil {
+ 	if err != nil {
 		log.Printf("[failed to connect]: %v\n", err)
 	}
 	fmt.Printf("connected [%v]: %v\n", i, conn)
@@ -88,7 +95,11 @@ func AcceptConn(i int64) {
 }
 
 func SendInfoToClient(i int64) bool {
-	unitId := CheckIfUnitAvailable()
+	unitId, err := CheckIfUnitAvailable()
+	if err != nil {
+		log.Printf("[Error in CheckIfUnitAvailable]: %v", err)
+		return false
+	}
 
 	if unitId == -1 {
 		log.Printf("[Error in getting info from db(%v)]", "SendInfoToClient")
@@ -101,15 +112,13 @@ func SendInfoToClient(i int64) bool {
 		TickSpeed: time.Second,
 		Running:   true,
 	}
-	err := client.Send.Encode(&server.Message{MsgCode: 2, FromServer: client.FromServer})
+	err = client.Send.Encode(&server.Message{MsgCode: 2, FromServer: client.FromServer})
 	if err != nil {
 		log.Printf("[Error in sending info to client]: %v", err)
 		return false
 	}
 	return true
 }
-
-// send necessary info to client about server
 
 func ManageConnection(i int64) {
 	var msg server.Message
@@ -140,6 +149,7 @@ func ManageConnection(i int64) {
 			}
 		case 3: // something changed in client
 		case 4: // client shutting down
+			fmt.Println(msg)
 			fmt.Println("client shutting down ", i)
 			return
 		case 5: // client reloading
